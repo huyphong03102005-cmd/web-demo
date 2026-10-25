@@ -15,11 +15,12 @@ class Migration(migrations.Migration):
             model_name='vanbanden',
             name='NgayHoanThanh',
         ),
-        migrations.AddField(
-            model_name='vanbanden',
-            name='DonViTrongID',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='web.donvibentrong'),
-        ),
+        # DonViTrongID was already created in 0001_initial.py
+        # migrations.AddField(
+        #     model_name='vanbanden',
+        #     name='DonViTrongID',
+        #     field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='web.donvibentrong'),
+        # ),
         migrations.AlterField(
             model_name='baocao',
             name='VanBanDenID',
