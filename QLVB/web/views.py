@@ -109,6 +109,7 @@ def get_filtered_documents(user, model_class):
             Q(phancong__UserID=user) | 
             Q(chuyentiep__UserID=user)
         ).distinct()
+    else:
         return model_class.objects.filter(
             Q(NguoiGui=user) |
             Q(UserID=user) | 
