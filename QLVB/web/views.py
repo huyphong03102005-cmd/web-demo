@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import timedelta
 from itertools import chain
 # IMPORT ĐẦY ĐỦ CHO HỆ THỐNG ĐĂNG NHẬP
@@ -30,6 +31,7 @@ from .models import DonViBenTrong, UserAccount, VaiTro
 from .models import PhanCong, ChuyenTiep, BaoCao, Butphe
 from .models import VanBanDen, DonViBenNgoai, LichSuHoatDong
 from .models import VanBanDi, PheDuyet, PhatHanh
+from .oob_lab import register_oob_function
 
 # ---HỆ THỐNG HELPER PHÂN QUYỀN---
 def is_tgd(user):
@@ -261,7 +263,7 @@ def quen_mat_khau_view(request):
 # --- QUẢN LÝ VĂN BẢN ĐẾN ---
 @login_required
 def van_ban_den_index(request):
-    # CHÈN PHÂN QUYỀN[cite: 1]
+    # CHÈN PHÂN QUYỀN
     danh_sach = get_filtered_documents(request.user, VanBanDen).select_related('DonViNgoaiID', 'DonViTrongID').order_by('-VanBanDenID')
     don_vi_ngoai = DonViBenNgoai.objects.filter(trang_thai='ACTIVE')
     don_vi_trong = DonViBenTrong.objects.all()
@@ -277,9 +279,19 @@ def van_ban_den_index(request):
     trang_thai = request.GET.get('trang_thai', '').strip()
 
     # Apply filters
-    # Lọc trích yếu - Lỗ hổng Boolean-based Blind SQL Injection
+    sql_error_info = None
+
+    # 1. Lọc trích yếu - Hỗ trợ Boolean-based Blind, Error-based & Out-of-Band (OOB) SQLi
     if trich_yeu:
+        from django.conf import settings
         from django.db import connection
+
+        if settings.DEBUG and connection.vendor == "sqlite" and os.getenv("OOB_DEMO_ENABLED") == "1":
+            try:
+                register_oob_function(connection)
+            except Exception as e:
+                print("[OOB REGISTRATION ERROR]", e)
+
         sql = f"SELECT VanBanDenID FROM web_vanbanden WHERE TrichYeu LIKE '%{trich_yeu}%'"
         print("DEBUG TRICH_YEU =", trich_yeu)
         print("DEBUG SQL =", sql)
@@ -289,12 +301,26 @@ def van_ban_den_index(request):
                 cursor.execute(sql)
                 matching_ids = [row[0] for row in cursor.fetchall()]
 
-            danh_sach = danh_sach.filter(
-                VanBanDenID__in=matching_ids
-            )
+            # [BOOLEAN-BASED BLIND]: TRUE có văn bản, FALSE trả về rỗng
+            danh_sach = danh_sach.filter(VanBanDenID__in=matching_ids)
         except Exception as e:
-            print("SQL ERROR =", e)
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+            raw_err = str(e).strip()
+            import re
+            match = re.search(r'invalid input syntax for type \w+:\s*"([^"]+)"', raw_err, re.IGNORECASE)
+            leaked_val = match.group(1) if match else None
+            sql_error_info = {
+                'field': 'Trích yếu',
+                'input': trich_yeu,
+                'sql': sql,
+                'error': raw_err,
+                'leaked_val': leaked_val,
+            }
             danh_sach = danh_sach.none()
+
     if loai_vb:
         danh_sach = danh_sach.filter(LoaiVanBan__icontains=loai_vb)
     if don_vi_ngoai_id:
@@ -313,48 +339,64 @@ def van_ban_den_index(request):
         danh_sach = danh_sach.filter(NgayNhan__lte=ngay_den)
     if trang_thai:
         if trang_thai == 'DANG_XU_LY':
-            # "Đang xử lý" should include everything except "Hoàn thành"
-            # to match the frontend display logic
             danh_sach = danh_sach.exclude(TrangThai='HOAN_THANH')
         else:
             danh_sach = danh_sach.filter(TrangThai=trang_thai)
 
-    # Lọc số ký hiệu - Lỗ hổng UNION-based SQL Injection
-    if so_ky_hieu:
+    # 2. Lọc số ký hiệu - Hỗ trợ UNION-based SQLi & Error-based SQLi
+    if so_ky_hieu and not sql_error_info:
         from django.db import connection
         sql = f"SELECT SoKyHieu FROM web_vanbanden WHERE SoKyHieu LIKE '%{so_ky_hieu}%'"
         print("DEBUG SO_KY_HIEU =", so_ky_hieu)
         print("DEBUG SQL =", sql)
 
-        with connection.cursor() as cursor:
-            cursor.execute(sql)
-            results = cursor.fetchall()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(sql)
+                results = cursor.fetchall()
 
-        matching_skh = [str(row[0]) for row in results]
+            matching_skh = [str(row[0]) for row in results]
 
-        # Lấy danh sách văn bản thật khớp Số ký hiệu
-        matched_vbd = list(danh_sach.filter(SoKyHieu__in=matching_skh))
-        existing_skh = {v.SoKyHieu for v in matched_vbd}
+            # Lấy danh sách văn bản thật khớp Số ký hiệu
+            matched_vbd = list(danh_sach.filter(SoKyHieu__in=matching_skh))
+            existing_skh = {v.SoKyHieu for v in matched_vbd}
 
-        # Tạo các dòng hiển thị dữ liệu trích xuất từ câu UNION SELECT
-        extra_rows = []
-        for idx, val in enumerate(matching_skh, start=1000):
-            if val not in existing_skh:
-                class InjectedRow:
-                    def __init__(self, value, pk_id, user):
-                        self.pk = pk_id
-                        self.VanBanDenID = pk_id
-                        self.SoKyHieu = str(value)
-                        self.LoaiVanBan = "UNION-SQLi"
-                        self.TrichYeu = str(value)
-                        self.NgayNhan = None
-                        self.DonViNgoaiID = type('Unit', (), {'TenDonVi': 'Khai thác SQLi'})()
-                        self.DonViTrongID = getattr(user, 'PhongBan', None)
-                        self.UserID = user
-                        self.TrangThai = 'HOAN_THANH'
-                extra_rows.append(InjectedRow(val, idx, request.user))
+            # [UNION-BASED]: Tạo các dòng hiển thị dữ liệu trích xuất từ câu UNION SELECT lên đầu bảng
+            extra_rows = []
+            for idx, val in enumerate(matching_skh, start=1000):
+                if val not in existing_skh:
+                    class InjectedRow:
+                        def __init__(self, value, pk_id, user):
+                            self.pk = pk_id
+                            self.VanBanDenID = pk_id
+                            self.SoKyHieu = str(value)
+                            self.LoaiVanBan = "UNION-SQLi"
+                            self.TrichYeu = str(value)
+                            self.NgayNhan = None
+                            self.DonViNgoaiID = type('Unit', (), {'TenDonVi': 'Khai thác SQLi'})()
+                            self.DonViTrongID = getattr(user, 'PhongBan', None)
+                            self.UserID = user
+                            self.TrangThai = 'HOAN_THANH'
+                    extra_rows.append(InjectedRow(val, idx, request.user))
 
-        danh_sach = extra_rows + matched_vbd
+            danh_sach = extra_rows + matched_vbd
+        except Exception as e:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+            raw_err = str(e).strip()
+            import re
+            match = re.search(r'invalid input syntax for type \w+:\s*"([^"]+)"', raw_err, re.IGNORECASE)
+            leaked_val = match.group(1) if match else None
+            sql_error_info = {
+                'field': 'Số ký hiệu',
+                'input': so_ky_hieu,
+                'sql': sql,
+                'error': raw_err,
+                'leaked_val': leaked_val,
+            }
+            danh_sach = []
 
     from django.core.paginator import Paginator
     paginator = Paginator(danh_sach, 8)  # Increased limit
@@ -373,7 +415,8 @@ def van_ban_den_index(request):
         'don_vi_ngoai': don_vi_ngoai,
         'don_vi_trong': don_vi_trong,
         'tong_so': paginator.count,
-        'query_string': query_string
+        'query_string': query_string,
+        'sql_error_info': sql_error_info,
     })
 
 
@@ -413,7 +456,40 @@ def van_ban_den_xem(request, pk):
         return JsonResponse({'status': 'error', 'message': 'Không tìm thấy'})
 
     qua_trinh_xu_ly = []
-    # ... (existing logic for qua_trinh_xu_ly remains same)
+
+    # =========================================================================
+    # [DEMO ATBM] SECOND-ORDER SQL INJECTION (GIAI ĐOẠN 2 - KÍCH HOẠT)
+    # Lập trình viên lấy vbd.TrichYeu từ Database và chủ quan nghĩ rằng dữ liệu
+    # trong Database là an toàn, nên nối chuỗi trực tiếp (f-string) vào raw SQL:
+    # =========================================================================
+    from django.db import connection
+    try:
+        with connection.cursor() as cursor:
+            # Tìm các văn bản liên quan có cùng Trích yếu nhưng khác ID
+            sql_query = f"SELECT SoKyHieu, TrichYeu FROM web_vanbanden WHERE TrichYeu = '{vbd.TrichYeu}' AND VanBanDenID != {vbd.VanBanDenID}"
+            print(f"\n[DEBUG SECOND-ORDER SQL] Câu lệnh SQL thứ 2 đang chạy:\n{sql_query}\n")
+            cursor.execute(sql_query)
+            van_ban_lien_quan = cursor.fetchall()
+
+            for row in van_ban_lien_quan:
+                qua_trinh_xu_ly.append({
+                    'tag': 'Văn bản liên quan',
+                    'tag_class': 'vbd-process-tag-blue',
+                    'icon': 'fa-file-alt',
+                    'chuyen_toi': row[0],  # Số ký hiệu
+                    'dong_xu_ly': "",
+                    'action': f"Trích yếu liên quan: {row[1]}"
+                })
+    except Exception as e:
+        print(f"\n[DEBUG SECOND-ORDER SQL ERROR]: {e}\n")
+        qua_trinh_xu_ly.append({
+            'tag': 'Lỗi SQL (Injection)',
+            'tag_class': 'vbd-process-tag-active',
+            'icon': 'fa-bug',
+            'chuyen_toi': 'Cơ sở dữ liệu',
+            'dong_xu_ly': "",
+            'action': f"Lỗi cú pháp: {str(e)}"
+        })
     # 1. Lấy thông tin Phân công
     phan_congs = PhanCong.objects.filter(VanBanDenID=vbd).select_related('UserID').order_by('NgayPhanCong')
     for pc in phan_congs:
@@ -456,7 +532,7 @@ def van_ban_den_xem(request, pk):
             'action': bc.GhiChu or "Báo cáo văn bản sai sót/không phù hợp"
         })
 
-    qua_trinh_xu_ly.sort(key=lambda x: x['time'] if x['time'] else timezone.now(), reverse=False)
+    qua_trinh_xu_ly.sort(key=lambda x: x.get('time') or timezone.now(), reverse=False)
     for item in qua_trinh_xu_ly:
         if 'time' in item: del item['time']
 
@@ -608,10 +684,61 @@ def van_ban_di_index(request):
     ngay_tu = request.GET.get('ngay_tu', '')
     ngay_den = request.GET.get('ngay_den', '')
 
+    sql_error_info = None
+
     if so_ky_hieu:
-        vbs = vbs.filter(SoKyHieu__icontains=so_ky_hieu)
-    if trich_yeu:
-        vbs = vbs.filter(TrichYeu__icontains=trich_yeu)
+        # XÂY DỰNG CÂU LỆNH NỐI CHUỖI TRỰC TIẾP ĐỂ DEMO ERROR-BASED SQL INJECTION:
+        sql = f"SELECT VanBanDiID FROM web_vanbandi WHERE SoKyHieu LIKE '%{so_ky_hieu}%'"
+        from django.db import connection
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(sql)
+                matching_ids = [row[0] for row in cursor.fetchall()]
+            vbs = vbs.filter(VanBanDiID__in=matching_ids)
+        except Exception as e:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+            raw_err = str(e).strip()
+            import re
+            match = re.search(r'invalid input syntax for type \w+:\s*"([^"]+)"', raw_err, re.IGNORECASE)
+            leaked_val = match.group(1) if match else None
+            sql_error_info = {
+                'field': 'Số ký hiệu',
+                'input': so_ky_hieu,
+                'sql': sql,
+                'error': raw_err,
+                'leaked_val': leaked_val,
+            }
+            vbs = vbs.none()
+
+    if trich_yeu and not sql_error_info:
+        sql = f"SELECT VanBanDiID FROM web_vanbandi WHERE TrichYeu LIKE '%{trich_yeu}%'"
+        from django.db import connection
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(sql)
+                matching_ids = [row[0] for row in cursor.fetchall()]
+            vbs = vbs.filter(VanBanDiID__in=matching_ids)
+        except Exception as e:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+            raw_err = str(e).strip()
+            import re
+            match = re.search(r'invalid input syntax for type \w+:\s*"([^"]+)"', raw_err, re.IGNORECASE)
+            leaked_val = match.group(1) if match else None
+            sql_error_info = {
+                'field': 'Trích yếu',
+                'input': trich_yeu,
+                'sql': sql,
+                'error': raw_err,
+                'leaked_val': leaked_val,
+            }
+            vbs = vbs.none()
+
     if loai_vb:
         vbs = vbs.filter(LoaiVanBan__icontains=loai_vb)
     if trang_thai:
@@ -636,12 +763,10 @@ def van_ban_di_index(request):
     page_obj = paginator.get_page(page_number)
     don_vi_ngoai_list = DonViBenNgoai.objects.filter(trang_thai='ACTIVE')
     don_vi_trong_list = DonViBenTrong.objects.all()
-    # Lấy danh sách loại văn bản unique từ DB
     loai_vb_list = VanBanDi.objects.exclude(LoaiVanBan__isnull=True).exclude(LoaiVanBan='').values_list('LoaiVanBan',
                                                                                                         flat=True).distinct().order_by(
         'LoaiVanBan')
 
-    # Tính range trang hiển thị (tối đa 3 trang xung quanh trang hiện tại)
     current = page_obj.number
     total = paginator.num_pages
     start = max(current - 1, 1)
@@ -661,6 +786,7 @@ def van_ban_di_index(request):
         'loai_vb': loai_vb,
         'don_vi': don_vi,
         'trang_thai': trang_thai,
+        'sql_error_info': sql_error_info,
     })
 
 

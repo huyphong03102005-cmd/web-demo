@@ -485,6 +485,25 @@
   </div>
 </section>
 
+
+{% if sql_error_info %}
+<div style="background: #fff3f3; border-left: 5px solid #dc3545; padding: 15px 20px; border-radius: 6px; margin: 15px 0 20px 0; box-shadow: 0 2px 8px rgba(220,53,69,0.15);">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+    <strong style="color: #c82333; font-size: 15px;"><i class="fas fa-exclamation-triangle"></i> THÔNG BÁO LỖI DBMS (ERROR-BASED SQL INJECTION)</strong>
+    <span style="background: #dc3545; color: white; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;">Trường: {{ sql_error_info.field }}</span>
+  </div>
+  <div style="font-family: monospace; font-size: 13px; color: #333; background: #fdf2f2; padding: 10px; border-radius: 4px; border: 1px solid #f5c6cb; word-break: break-all; margin-bottom: 8px;">
+    <strong>SQL Thực thi:</strong> {{ sql_error_info.sql }}<br>
+    <strong>Lỗi DBMS:</strong> {{ sql_error_info.error }}
+  </div>
+  {% if sql_error_info.leaked_val %}
+  <div style="background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; padding: 10px 14px; border-radius: 4px; font-size: 14px; font-weight: bold;">
+    <i class="fas fa-key"></i> Dữ liệu trích xuất thành công: <code style="color: #c7254e; background-color: #f9f2f4; padding: 2px 4px; border-radius: 4px;">{{ sql_error_info.leaked_val }}</code>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
 <section class="panel">
   <div class="panel-header header-gray" style="display: flex; justify-content: space-between;">
     <span>Danh sách văn bản đến</span>
