@@ -280,16 +280,21 @@ def van_ban_den_index(request):
     if so_ky_hieu:
         danh_sach = danh_sach.filter(SoKyHieu__icontains=so_ky_hieu)
     if trich_yeu:
-        # CỐ Ý MỞ LỖ HỔNG SQL INJECTION ĐỂ LÀM BÀI TẬP DEMO:
-        sql = f"SELECT VanBanDenID FROM web_vanbanden WHERE TrichYeu LIKE '%{trich_yeu}%'"
         from django.db import connection
+        sql = f"SELECT VanBanDenID FROM web_vanbanden WHERE TrichYeu LIKE '%{trich_yeu}%'"
+        print("DEBUG TRICH_YEU =", trich_yeu)
+        print("DEBUG SQL =", sql)
+
         try:
             with connection.cursor() as cursor:
                 cursor.execute(sql)
                 matching_ids = [row[0] for row in cursor.fetchall()]
-            danh_sach = danh_sach.filter(VanBanDenID__in=matching_ids)
+
+            danh_sach = danh_sach.filter(
+                VanBanDenID__in=matching_ids
+            )
         except Exception as e:
-            # Nếu cú pháp SQL bị lỗi do payload
+            print("SQL ERROR =", e)
             danh_sach = danh_sach.none()
     if loai_vb:
         danh_sach = danh_sach.filter(LoaiVanBan__icontains=loai_vb)
