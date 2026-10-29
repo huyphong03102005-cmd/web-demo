@@ -47,3 +47,30 @@ def register_oob_function(db_connection):
         0,
         demo_oob
     )
+
+def register_time_delay_function(db_connection):
+    """
+    Đăng ký hàm sleep() và pg_sleep() vào SQLite
+    để hỗ trợ demo Time-based Blind SQL Injection trên môi trường SQLite.
+    """
+    if db_connection.vendor != "sqlite":
+        return
+
+    db_connection.ensure_connection()
+
+    import time
+    def demo_sleep(seconds):
+        try:
+            sec = float(seconds)
+            print(f"[TIME-BASED LAB] Đang thực thi SLEEP {sec}s...", flush=True)
+            time.sleep(sec)
+            print(f"[TIME-BASED LAB] Hoàn thành SLEEP {sec}s.", flush=True)
+        except Exception as e:
+            print(f"[TIME-BASED LAB] Lỗi sleep: {e}", flush=True)
+        return 1
+
+    try:
+        db_connection.connection.create_function("sleep", 1, demo_sleep)
+        db_connection.connection.create_function("pg_sleep", 1, demo_sleep)
+    except Exception as e:
+        print(f"[TIME-BASED LAB] Lỗi đăng ký hàm sleep: {e}")

@@ -31,7 +31,7 @@ from .models import DonViBenTrong, UserAccount, VaiTro
 from .models import PhanCong, ChuyenTiep, BaoCao, Butphe
 from .models import VanBanDen, DonViBenNgoai, LichSuHoatDong
 from .models import VanBanDi, PheDuyet, PhatHanh
-from .oob_lab import register_oob_function
+from .oob_lab import register_oob_function, register_time_delay_function
 
 # ---HỆ THỐNG HELPER PHÂN QUYỀN---
 def is_tgd(user):
@@ -281,10 +281,16 @@ def van_ban_den_index(request):
     # Apply filters
     sql_error_info = None
 
-    # 1. Lọc trích yếu - Hỗ trợ Boolean-based Blind, Error-based & Out-of-Band (OOB) SQLi
+    # 1. Lọc trích yếu - Hỗ trợ Boolean-based Blind, Time-based Blind, Error-based & Out-of-Band (OOB) SQLi
     if trich_yeu:
         from django.conf import settings
         from django.db import connection
+
+        if connection.vendor == "sqlite":
+            try:
+                register_time_delay_function(connection)
+            except Exception as e:
+                print("[TIME-BASED REGISTRATION ERROR]", e)
 
         if settings.DEBUG and connection.vendor == "sqlite" and os.getenv("OOB_DEMO_ENABLED") == "1":
             try:
@@ -343,9 +349,14 @@ def van_ban_den_index(request):
         else:
             danh_sach = danh_sach.filter(TrangThai=trang_thai)
 
-    # 2. Lọc số ký hiệu - Hỗ trợ UNION-based SQLi & Error-based SQLi
+    # 2. Lọc số ký hiệu - Hỗ trợ UNION-based, Time-based & Error-based SQLi
     if so_ky_hieu and not sql_error_info:
         from django.db import connection
+        if connection.vendor == "sqlite":
+            try:
+                register_time_delay_function(connection)
+            except Exception:
+                pass
         sql = f"SELECT SoKyHieu FROM web_vanbanden WHERE SoKyHieu LIKE '%{so_ky_hieu}%'"
         print("DEBUG SO_KY_HIEU =", so_ky_hieu)
         print("DEBUG SQL =", sql)
@@ -687,9 +698,14 @@ def van_ban_di_index(request):
     sql_error_info = None
 
     if so_ky_hieu:
-        # XÂY DỰNG CÂU LỆNH NỐI CHUỖI TRỰC TIẾP ĐỂ DEMO ERROR-BASED SQL INJECTION:
+        # XÂY DỰNG CÂU LỆNH NỐI CHUỖI TRỰC TIẾP ĐỂ DEMO ERROR-BASED & TIME-BASED SQL INJECTION:
         sql = f"SELECT VanBanDiID FROM web_vanbandi WHERE SoKyHieu LIKE '%{so_ky_hieu}%'"
         from django.db import connection
+        if connection.vendor == "sqlite":
+            try:
+                register_time_delay_function(connection)
+            except Exception:
+                pass
         try:
             with connection.cursor() as cursor:
                 cursor.execute(sql)
@@ -716,6 +732,11 @@ def van_ban_di_index(request):
     if trich_yeu and not sql_error_info:
         sql = f"SELECT VanBanDiID FROM web_vanbandi WHERE TrichYeu LIKE '%{trich_yeu}%'"
         from django.db import connection
+        if connection.vendor == "sqlite":
+            try:
+                register_time_delay_function(connection)
+            except Exception:
+                pass
         try:
             with connection.cursor() as cursor:
                 cursor.execute(sql)
