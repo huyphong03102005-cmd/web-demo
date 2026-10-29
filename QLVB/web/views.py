@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import timedelta
 from itertools import chain
 # IMPORT ĐẦY ĐỦ CHO HỆ THỐNG ĐĂNG NHẬP
@@ -30,6 +31,7 @@ from .models import DonViBenTrong, UserAccount, VaiTro
 from .models import PhanCong, ChuyenTiep, BaoCao, Butphe
 from .models import VanBanDen, DonViBenNgoai, LichSuHoatDong
 from .models import VanBanDi, PheDuyet, PhatHanh
+from .oob_lab import register_oob_function
 
 # ---HỆ THỐNG HELPER PHÂN QUYỀN---
 def is_tgd(user):
@@ -106,14 +108,14 @@ def get_filtered_documents(user, model_class):
     if model_class == VanBanDen:
         return model_class.objects.filter(
             Q(UserID=user) |
-            Q(phancong__UserID=user) | 
+            Q(phancong__UserID=user) |
             Q(chuyentiep__UserID=user)
         ).distinct()
     else:
         return model_class.objects.filter(
             Q(NguoiGui=user) |
-            Q(UserID=user) | 
-            Q(phancong__UserID=user) | 
+            Q(UserID=user) |
+            Q(phancong__UserID=user) |
             Q(chuyentiep__UserID=user)
         ).distinct()
 
@@ -276,21 +278,71 @@ def van_ban_den_index(request):
     ngay_den = request.GET.get('ngay_den', '')
     trang_thai = request.GET.get('trang_thai', '').strip()
 
-    # Apply filters
+        # Apply filters
     if so_ky_hieu:
-        danh_sach = danh_sach.filter(SoKyHieu__icontains=so_ky_hieu)
+        danh_sach = danh_sach.filter(
+            SoKyHieu__icontains=so_ky_hieu
+        )
+
     if trich_yeu:
-        # CỐ Ý MỞ LỖ HỔNG SQL INJECTION ĐỂ LÀM BÀI TẬP DEMO:
-        sql = f"SELECT VanBanDenID FROM web_vanbanden WHERE TrichYeu LIKE '%{trich_yeu}%'"
+        print(
+            "[WEB OOB] Da nhan tim kiem:",
+            repr(trich_yeu),
+            "FLAG:",
+            os.getenv("OOB_DEMO_ENABLED"),
+            flush=True
+        )
+
+        from django.conf import settings
         from django.db import connection
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute(sql)
-                matching_ids = [row[0] for row in cursor.fetchall()]
-            danh_sach = danh_sach.filter(VanBanDenID__in=matching_ids)
-        except Exception as e:
-            # Nếu cú pháp SQL bị lỗi do payload
-            danh_sach = danh_sach.none()
+
+        # Chi kich hoat SQL Injection trong moi truong LAB
+        if (
+            settings.DEBUG
+            and connection.vendor == "sqlite"
+            and os.getenv("OOB_DEMO_ENABLED") == "1"
+        ):
+            sql = (
+                "SELECT VanBanDenID "
+                "FROM web_vanbanden "
+                f"WHERE TrichYeu LIKE '%{trich_yeu}%'"
+            )
+
+            try:
+                # Dang ky ham demo_oob tren SQLite
+                register_oob_function(connection)
+
+                print("[WEB OOB] SQL:", sql, flush=True)
+
+                with connection.cursor() as cursor:
+                    cursor.execute(sql)
+                    matching_ids = [
+                        row[0] for row in cursor.fetchall()
+                    ]
+
+                print(
+                    "[WEB OOB] Matching IDs:",
+                    matching_ids,
+                    flush=True
+                )
+
+                danh_sach = danh_sach.filter(
+                    VanBanDenID__in=matching_ids
+                )
+
+            except Exception as e:
+                print(
+                    "[SQLi LAB] Loi SQL:",
+                    repr(e),
+                    flush=True
+                )
+                danh_sach = danh_sach.none()
+
+        else:
+            # Tim kiem an toan khi khong o che do LAB
+            danh_sach = danh_sach.filter(
+                TrichYeu__icontains=trich_yeu
+            )
     if loai_vb:
         danh_sach = danh_sach.filter(LoaiVanBan__icontains=loai_vb)
     if don_vi_ngoai_id:
@@ -359,6 +411,7 @@ def van_ban_den_them(request):
                 error_msg = list(form.errors.values())[0][0] if form.errors else "Dữ liệu không hợp lệ."
                 return JsonResponse({'status': 'error', 'message': error_msg})
         except Exception as e:
+            print("[OOB DEMO SQL ERROR]", repr(e))
             return JsonResponse({'status': 'error', 'message': str(e)})
     return JsonResponse({'status': 'invalid method'})
 
@@ -372,6 +425,41 @@ def van_ban_den_xem(request, pk):
         return JsonResponse({'status': 'error', 'message': 'Không tìm thấy'})
 
     qua_trinh_xu_ly = []
+    
+    # =========================================================================
+    # [DEMO ATBM] SECOND-ORDER SQL INJECTION (GIAI ĐOẠN 2 - KÍCH HOẠT)
+    # Lập trình viên lấy vbd.TrichYeu từ Database và chủ quan nghĩ rằng dữ liệu
+    # trong Database là an toàn, nên nối chuỗi trực tiếp (f-string) vào raw SQL:
+    # =========================================================================
+    from django.db import connection
+    try:
+        with connection.cursor() as cursor:
+            # Tìm các văn bản liên quan có cùng Trích yếu nhưng khác ID
+            sql_query = f"SELECT SoKyHieu, TrichYeu FROM web_vanbanden WHERE TrichYeu = '{vbd.TrichYeu}' AND VanBanDenID != {vbd.VanBanDenID}"
+            print(f"\n[DEBUG SECOND-ORDER SQL] Câu lệnh SQL thứ 2 đang chạy:\n{sql_query}\n")
+            cursor.execute(sql_query)
+            van_ban_lien_quan = cursor.fetchall()
+
+            for row in van_ban_lien_quan:
+                qua_trinh_xu_ly.append({
+                    'tag': 'Văn bản liên quan',
+                    'tag_class': 'vbd-process-tag-blue',
+                    'icon': 'fa-file-alt',
+                    'chuyen_toi': row[0],  # Số ký hiệu
+                    'dong_xu_ly': "",
+                    'action': f"Trích yếu liên quan: {row[1]}"
+                })
+    except Exception as e:
+        print(f"\n[DEBUG SECOND-ORDER SQL ERROR]: {e}\n")
+        qua_trinh_xu_ly.append({
+            'tag': 'Lỗi SQL (Injection)',
+            'tag_class': 'vbd-process-tag-active',
+            'icon': 'fa-bug',
+            'chuyen_toi': 'Cơ sở dữ liệu',
+            'dong_xu_ly': "",
+            'action': f"Lỗi cú pháp: {str(e)}"
+        })
+    #
     # ... (existing logic for qua_trinh_xu_ly remains same)
     # 1. Lấy thông tin Phân công
     phan_congs = PhanCong.objects.filter(VanBanDenID=vbd).select_related('UserID').order_by('NgayPhanCong')
@@ -415,7 +503,7 @@ def van_ban_den_xem(request, pk):
             'action': bc.GhiChu or "Báo cáo văn bản sai sót/không phù hợp"
         })
 
-    qua_trinh_xu_ly.sort(key=lambda x: x['time'] if x['time'] else timezone.now(), reverse=False)
+    qua_trinh_xu_ly.sort(key=lambda x: x.get('time') or timezone.now(), reverse=False)
     for item in qua_trinh_xu_ly:
         if 'time' in item: del item['time']
 
@@ -570,6 +658,8 @@ def van_ban_di_index(request):
     if so_ky_hieu:
         vbs = vbs.filter(SoKyHieu__icontains=so_ky_hieu)
     if trich_yeu:
+        print("[WEB OOB] Da nhan tim kiem:", repr(trich_yeu),
+              "FLAG:", os.getenv("OOB_DEMO_ENABLED"), flush=True)
         vbs = vbs.filter(TrichYeu__icontains=trich_yeu)
     if loai_vb:
         vbs = vbs.filter(LoaiVanBan__icontains=loai_vb)
