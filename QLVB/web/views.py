@@ -277,8 +277,7 @@ def van_ban_den_index(request):
     trang_thai = request.GET.get('trang_thai', '').strip()
 
     # Apply filters
-    if so_ky_hieu:
-        danh_sach = danh_sach.filter(SoKyHieu__icontains=so_ky_hieu)
+    # Lọc trích yếu - Lỗ hổng Boolean-based Blind SQL Injection
     if trich_yeu:
         from django.db import connection
         sql = f"SELECT VanBanDenID FROM web_vanbanden WHERE TrichYeu LIKE '%{trich_yeu}%'"
@@ -319,6 +318,43 @@ def van_ban_den_index(request):
             danh_sach = danh_sach.exclude(TrangThai='HOAN_THANH')
         else:
             danh_sach = danh_sach.filter(TrangThai=trang_thai)
+
+    # Lọc số ký hiệu - Lỗ hổng UNION-based SQL Injection
+    if so_ky_hieu:
+        from django.db import connection
+        sql = f"SELECT SoKyHieu FROM web_vanbanden WHERE SoKyHieu LIKE '%{so_ky_hieu}%'"
+        print("DEBUG SO_KY_HIEU =", so_ky_hieu)
+        print("DEBUG SQL =", sql)
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql)
+            results = cursor.fetchall()
+
+        matching_skh = [str(row[0]) for row in results]
+
+        # Lấy danh sách văn bản thật khớp Số ký hiệu
+        matched_vbd = list(danh_sach.filter(SoKyHieu__in=matching_skh))
+        existing_skh = {v.SoKyHieu for v in matched_vbd}
+
+        # Tạo các dòng hiển thị dữ liệu trích xuất từ câu UNION SELECT
+        extra_rows = []
+        for idx, val in enumerate(matching_skh, start=1000):
+            if val not in existing_skh:
+                class InjectedRow:
+                    def __init__(self, value, pk_id, user):
+                        self.pk = pk_id
+                        self.VanBanDenID = pk_id
+                        self.SoKyHieu = str(value)
+                        self.LoaiVanBan = "UNION-SQLi"
+                        self.TrichYeu = str(value)
+                        self.NgayNhan = None
+                        self.DonViNgoaiID = type('Unit', (), {'TenDonVi': 'Khai thác SQLi'})()
+                        self.DonViTrongID = getattr(user, 'PhongBan', None)
+                        self.UserID = user
+                        self.TrangThai = 'HOAN_THANH'
+                extra_rows.append(InjectedRow(val, idx, request.user))
+
+        danh_sach = extra_rows + matched_vbd
 
     from django.core.paginator import Paginator
     paginator = Paginator(danh_sach, 8)  # Increased limit
